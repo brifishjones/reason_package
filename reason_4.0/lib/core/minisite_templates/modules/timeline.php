@@ -54,6 +54,81 @@
 
 			return $val;
 		}
+		
+		function create_timeline_slide($timeline_item, &$timeline_item_json)
+		// populate the timeline_item_json array with contents of the timeline_item
+		{
+			$timeline_item_json = [
+				'start_date' => $this->create_date_object($timeline_item->get_value('start_date')),
+				'end_date'   => $this->create_date_object($timeline_item->get_value('end_date')),
+				'display_date' => $this->nullify($timeline_item->get_value('display_date')),
+				'unique_id'    => $this->nullify($timeline_item->get_value('unique_name')),
+				'text' => [
+					'headline' => $timeline_item->get_value('name'),
+					'text'     => $timeline_item->get_value('text')
+				]
+			];
+			
+			if ($timeline_item->get_value('media') == 'reason_image')
+			{
+				$es = new entity_selector($this->site_id);
+				$es->add_type(id_of('image'));
+				$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_image'));
+				$es->set_num(1);
+				$images = $es->run_one();
+			
+				if (!empty($images))
+				{
+					$image = reset($images);
+			
+					$timeline_item_json['media'] = [
+					'url'     => WEB_PHOTOSTOCK . $image->_id . '.' . $image->get_value('image_type'),
+					'caption' => $image->get_value('description')
+					];
+				}
+			}
+			else if ($timeline_item->get_value('media') == 'reason_media_work')
+			{
+				$es = new entity_selector($this->site_id);
+				$es->add_type(id_of('av'));
+				$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_media_work'));
+				$es->set_num(1);
+				$media_works = $es->run_one();
+			
+				if (!empty($media_works))
+				{
+					$media_work = reset($media_works);
+					$es = new entity_selector($this->site_id);
+					$es->add_type(id_of('av_file'));
+					$es->add_right_relationship($media_work->id(), relationship_id_of('av_to_av_file'));
+					$es->set_order('av.media_format ASC, av.av_part_number ASC');
+					$es->set_num(1);
+					$media_files = $es->run_one();
+			
+					if (!empty($media_files))
+					{
+						$media_file = reset($media_files);
+			
+						$timeline_item_json['media'] = [
+						'url' => $media_file->get_value('url')
+						];
+					}
+				}
+			}
+			else if ($timeline_item->get_value('media') == 'other')
+			{
+				$timeline_item_json['media'] = [
+				'url' => $timeline_item->get_value('other_media')
+				];
+			}
+				
+			foreach ($timeline_item_json as $key => $value)
+			{
+				if ($value === null)
+					unset($timeline_item_json[$key]);
+			}
+
+		}
 
 		function run()
 		{
@@ -75,6 +150,18 @@
 					'eras' => [],
 					'scale' => 'human'
 				];
+				
+				$es = new entity_selector($this->site_id);
+				$es->add_type(id_of('timeline_item_type'));
+				$es->add_right_relationship($timeline->_id, relationship_id_of('timeline_to_title_timeline_item'));
+				$timeline_titles = $es->run_one();
+				
+				if (!empty($timeline_titles))
+				{
+					$timeline_title = reset($timeline_titles);
+					$this->create_timeline_slide($timeline_title, $timeline_item_json);
+					$json['title'] = $timeline_item_json;
+				}
 
 				$es = new entity_selector($this->site_id);
 				$es->add_type(id_of('timeline_item_type'));
@@ -83,76 +170,7 @@
 
 				foreach($timeline_items as $timeline_item)
 				{
-					$timeline_item_json = [
-						'start_date' => $this->create_date_object($timeline_item->get_value('start_date')),
-						'end_date'   => $this->create_date_object($timeline_item->get_value('end_date')),
-						'display_date' => $this->nullify($timeline_item->get_value('display_date')),
-						'unique_id'    => $this->nullify($timeline_item->get_value('unique_name')),
-						'text' => [
-							'headline' => $timeline_item->get_value('name'),
-							'text'     => $timeline_item->get_value('text')
-						]
-					];
-
-					if ($timeline_item->get_value('media') == 'reason_image')
-					{
-						$es = new entity_selector($this->site_id);
-						$es->add_type(id_of('image'));
-						$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_image'));
-						$es->set_num(1);
-						$images = $es->run_one();
-
-						if (!empty($images))
-						{
-							$image = reset($images);
-
-							$timeline_item_json['media'] = [
-								'url'     => WEB_PHOTOSTOCK . $image->_id . '.' . $image->get_value('image_type'),
-								'caption' => $image->get_value('description')
-							];
-						}
-					}
-					else if ($timeline_item->get_value('media') == 'reason_media_work')
-					{
-						$es = new entity_selector($this->site_id);
-						$es->add_type(id_of('av'));
-						$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_media_work'));
-						$es->set_num(1);
-						$media_works = $es->run_one();
-
-						if (!empty($media_works))
-						{
-							$media_work = reset($media_works);
-							$es = new entity_selector($this->site_id);
-							$es->add_type(id_of('av_file'));
-							$es->add_right_relationship($media_work->id(), relationship_id_of('av_to_av_file'));
-							$es->set_order('av.media_format ASC, av.av_part_number ASC');
-							$es->set_num(1);
-							$media_files = $es->run_one();
-
-							if (!empty($media_files))
-							{
-								$media_file = reset($media_files);
-
-								$timeline_item_json['media'] = [
-									'url' => $media_file->get_value('url')
-								];
-							}
-						}
-					}
-					else if ($timeline_item->get_value('media') == 'other')
-					{
-						$timeline_item_json['media'] = [
-							'url' => $timeline_item->get_value('other_media')
-						];
-					}
-					
-					foreach ($timeline_item_json as $key => $value)
-					{
-						if ($value === null)
-							unset($timeline_item_json[$key]);
-					}
-					
+					$this->create_timeline_slide($timeline_item, $timeline_item_json);
 					$json['events'][] = $timeline_item_json;
 				}
 
