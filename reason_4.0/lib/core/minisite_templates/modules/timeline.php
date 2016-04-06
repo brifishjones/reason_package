@@ -47,7 +47,7 @@
 
 		function nullify($val)
 		{
-			if (empty($val) || preg_match('/^\s+$/', $val))
+			if (empty($val) || preg_match('/^\s+$/', $val) || preg_match('/^0000\-00\-00/', $val))
 			{
 				return null;
 			}
@@ -146,7 +146,13 @@
 							'url' => $timeline_item->get_value('other_media')
 						];
 					}
-
+					
+					foreach ($timeline_item_json as $key => $value)
+					{
+						if ($value === null)
+							unset($timeline_item_json[$key]);
+					}
+					
 					$json['events'][] = $timeline_item_json;
 				}
 
