@@ -1,5 +1,7 @@
 <?php
+	include_once('reason_header.php');
 	reason_include_once( 'minisite_templates/modules/default.php' );
+	reason_include_once('classes/media/factory.php');
 	//reason_include_once( 'classes/timeliner.php' );
 
 	$GLOBALS[ '_module_class_names' ][ basename( __FILE__, '.php' ) ] = 'TimelineModule';
@@ -108,10 +110,18 @@
 					if (!empty($media_files))
 					{
 						$media_file = reset($media_files);
+						
+						$item = new entity($media_work->_id);
+						$displayer = MediaWorkFactory::media_work_displayer($item);
+						if ($displayer)
+						{
+							$displayer->set_media_work($item);
+							$timeline_item_json['media'] = [
+							'url' => $displayer->get_iframe_src(360,720)
+							];
+						}
 			
-						$timeline_item_json['media'] = [
-						'url' => $media_file->get_value('url')
-						];
+						
 					}
 				}
 			}
