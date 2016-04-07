@@ -117,7 +117,7 @@
 						{
 							$displayer->set_media_work($item);
 							$timeline_item_json['media'] = [
-							'url' => $displayer->get_iframe_src(360,720)
+							'url' => '<iframe style="height: 425px; width: 356px; border: 0" src="' . $displayer->get_iframe_src(405, 356) . '&amp;autostart=0"></iframe>'
 							];
 						}
 			
@@ -137,6 +137,7 @@
 				if ($value === null)
 					unset($timeline_item_json[$key]);
 			}
+			
 
 		}
 
