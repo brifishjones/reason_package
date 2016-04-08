@@ -117,11 +117,9 @@
 						{
 							$displayer->set_media_work($item);
 							$timeline_item_json['media'] = [
-							'url' => '<iframe style="height: 425px; width: 356px; border: 0" src="' . $displayer->get_iframe_src(405, 356) . '&amp;autostart=0"></iframe>'
+							'url' => '<iframe style="height: 425px; width: 356px; border: 0" src="' . $displayer->get_iframe_src(405, 356, $media_file) . '&amp;autostart=0"></iframe>'
 							];
-						}
-			
-						
+						}									
 					}
 				}
 			}
@@ -131,14 +129,25 @@
 				'url' => $timeline_item->get_value('other_media')
 				];
 			}
+			
+			// Assign an attached category to a timeline group
+			$es = new entity_selector($this->site_id);
+			$es->add_type(id_of('category_type'));
+			$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_category'));
+			$es->set_num(1);
+			$categories = $es->run_one();
 				
+			if (!empty($categories))
+			{
+				$category = reset($categories);
+				$timeline_item_json['group'] = $category->get_value('name');
+			}
+	
 			foreach ($timeline_item_json as $key => $value)
 			{
 				if ($value === null)
 					unset($timeline_item_json[$key]);
-			}
-			
-
+			}			
 		}
 
 		function run()
