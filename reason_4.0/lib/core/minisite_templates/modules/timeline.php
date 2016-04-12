@@ -73,7 +73,7 @@
 			
 			if ($timeline_item->get_value('media') == 'reason_image')
 			{
-				$es = new entity_selector($this->site_id);
+				$es = new entity_selector();
 				$es->add_type(id_of('image'));
 				$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_image'));
 				$es->set_num(1);
@@ -91,7 +91,7 @@
 			}
 			else if ($timeline_item->get_value('media') == 'reason_media_work')
 			{
-				$es = new entity_selector($this->site_id);
+				$es = new entity_selector();
 				$es->add_type(id_of('av'));
 				$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_media_work'));
 				$es->set_num(1);
@@ -100,38 +100,40 @@
 				if (!empty($media_works))
 				{
 					$media_work = reset($media_works);
-					$es = new entity_selector($this->site_id);
-					$es->add_type(id_of('av_file'));
-					$es->add_right_relationship($media_work->id(), relationship_id_of('av_to_av_file'));
-					$es->set_order('av.media_format ASC, av.av_part_number ASC');
-					$es->set_num(1);
-					$media_files = $es->run_one();
-			
-					if (!empty($media_files))
+					$displayer = MediaWorkFactory::media_work_displayer($media_work);
+					if ($displayer)
 					{
-						$media_file = reset($media_files);
-						
-						$item = new entity($media_work->_id);
-						$displayer = MediaWorkFactory::media_work_displayer($item);
-						if ($displayer)
+						$displayer->set_media_work($media_work);
+						if ($media_work->get_value('integration_library') == 'youtube' && !empty($media_work->get_value('entry_id')))
 						{
-							$displayer->set_media_work($item);
 							$timeline_item_json['media'] = [
-							'url' => '<iframe style="height: 425px; width: 356px; border: 0" src="' . $displayer->get_iframe_src(405, 356, $media_file) . '&amp;autostart=0"></iframe>'
+								'url' => 'https://www.youtube.com/watch?v=' . $media_work->get_value('entry_id')
 							];
-						}									
+						}
+						else if ($media_work->get_value('integration_library') == 'vimeo' && !empty($media_work->get_value('entry_id')))
+						{
+							$timeline_item_json['media'] = [
+								'url' => 'https://vimeo.com/' . $media_work->get_value('entry_id')
+							];
+						}
+						else
+						{
+							$timeline_item_json['media'] = [
+								'url' => '<iframe style="height: 425px; width: 356px; border: 0" src="' . $displayer->get_iframe_src(405, 356, $media_work) . '&amp;autostart=0"></iframe>'
+							];
+						}				
 					}
 				}
 			}
 			else if ($timeline_item->get_value('media') == 'other')
 			{
 				$timeline_item_json['media'] = [
-				'url' => $timeline_item->get_value('other_media')
+					'url' => $timeline_item->get_value('other_media')
 				];
 			}
 			
 			// Assign an attached category to a timeline group
-			$es = new entity_selector($this->site_id);
+			$es = new entity_selector();
 			$es->add_type(id_of('category_type'));
 			$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_category'));
 			$es->set_num(1);
