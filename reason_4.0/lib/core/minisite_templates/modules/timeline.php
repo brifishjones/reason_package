@@ -2,18 +2,26 @@
 	include_once('reason_header.php');
 	reason_include_once( 'minisite_templates/modules/default.php' );
 	reason_include_once('classes/media/factory.php');
+	include_once( CARL_UTIL_INC . 'basic/cleanup_funcs.php' );
 	//reason_include_once( 'classes/timeliner.php' );
 
 	$GLOBALS[ '_module_class_names' ][ basename( __FILE__, '.php' ) ] = 'TimelineModule';
 
 	class TimelineModule extends DefaultMinisiteModule
 	{
+		var $category_id = 0;
+		var $category_id_list = array(0 => "-- none --");
+		
 		function init( $args = array() )
 		{
+			parent::init($args);
 			$head_items = $this->get_head_items();
 			$head_items->add_javascript('//cdn.knightlab.com/libs/timeline3/latest/js/timeline.js');
 			$head_items->add_stylesheet('//cdn.knightlab.com/libs/timeline3/latest/css/timeline.css');
 			$head_items->add_stylesheet('//cdn.knightlab.com/libs/timeline3/latest/css/fonts/font.abril-droidsans.css');
+				
+			if (!empty($_REQUEST['category_id']))
+				$this->category_id = $_REQUEST['category_id'];
 		}
 
 		function has_content()
@@ -31,6 +39,47 @@
 			}
 
 			return false;
+		}
+		
+		function create_category_dropdown()
+		// If a timeline item is associated with a category it will have been added to the $category_id_list
+		// The first item on the list is -- none --
+		{
+			if (count($this->category_id_list) == 1)
+				return;
+
+			asort($this->category_id_list);
+			
+			$ret = '';
+			$ret .= '
+				<script type="text/javascript">
+					$(document).ready(function()
+					{	
+						$("select").val("' . strval($this->category_id) . '");
+					});
+				</script>'."\n";
+
+			$ret .= '<form method="post" name="disco_form">'."\n";
+			$ret .= '<div id="discoLinear">'."\n";
+			
+			$ret .= '<span id="category_label">Category: </span>'."\n";
+			$ret .= '<select name="category_id" id="category_id" style="height: auto; width: auto; margin-bottom: 1.875rem;" title="filter by category" onchange="this.form.submit();">'."\n";
+			foreach ($this->category_id_list as $key => $value)
+			{
+				if ($key == $this->category_id)
+				{
+					$ret .= '<option value="' . strval($key) . '" selected="selected">' . strval($value) .'</option>'."\n";
+				}
+				else
+				{
+					$ret .= '<option value="' . strval($key) . '">' . strval($value) .'</option>'."\n";
+				}
+			}
+			$ret .= '</select>'."\n";
+			$ret .= '</div>'."\n";
+			
+			$ret .= '</form>'."\n";
+			echo $ret;
 		}
 
 		function create_date_object($date_string)
@@ -59,7 +108,10 @@
 		
 		function create_timeline_slide($timeline_item, &$timeline_item_json)
 		// populate the timeline_item_json array with contents of the timeline_item
+		// returns false if timeline_item is not in the currently chosen category otherwise true
 		{
+			$add_timeline_event = true;
+			
 			$timeline_item_json = [
 				'start_date' => $this->create_date_object($timeline_item->get_value('start_date')),
 				'end_date'   => $this->create_date_object($timeline_item->get_value('end_date')),
@@ -132,28 +184,32 @@
 				];
 			}
 			
-			// Assign an attached category to a timeline group
+			// Assign an attached category
 			$es = new entity_selector();
 			$es->add_type(id_of('category_type'));
 			$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_category'));
-			$es->set_num(1);
 			$categories = $es->run_one();
 				
-			if (!empty($categories))
+			foreach ($categories as $category)
 			{
-				$category = reset($categories);
-				$timeline_item_json['group'] = $category->get_value('name');
+				if (!array_key_exists($category->get_value('id'), $this->category_id_list))
+					$this->category_id_list[$category->get_value('id')] = $category->get_value('name');
 			}
-	
+			
+			if ($this->category_id != 0 && (empty($categories) || !array_key_exists($this->category_id, $categories)))
+				$add_timeline_event = false;
+
 			foreach ($timeline_item_json as $key => $value)
 			{
 				if ($value === null)
 					unset($timeline_item_json[$key]);
-			}			
+			}
+			
+			return $add_timeline_event;					
 		}
 
 		function run()
-		{
+		{		
 			$site_id = $this->site_id;
 			$es = new entity_selector( $site_id );
 			$es->add_type( id_of('timeline_type'));
@@ -192,9 +248,11 @@
 
 				foreach($timeline_items as $timeline_item)
 				{
-					$this->create_timeline_slide($timeline_item, $timeline_item_json);
-					$json['events'][] = $timeline_item_json;
+					if ($this->create_timeline_slide($timeline_item, $timeline_item_json))	
+						$json['events'][] = $timeline_item_json;
 				}
+				
+				$this->create_category_dropdown();
 
 				$json = json_encode($json);
 
