@@ -42,10 +42,10 @@
 		}
 		
 		function create_category_dropdown()
-		// If a timeline item is associated with a category it will have been added to the $category_id_list
+		// Any timeline item associated with a category will have been added to the $category_id_list in the function create_timeline_slide()
 		// The first item on the list is -- none --
 		{
-			if (count($this->category_id_list) == 1)
+			if (count($this->category_id_list) == 1)   // no slides have an associated category
 				return;
 
 			asort($this->category_id_list);
@@ -59,7 +59,7 @@
 					});
 				</script>'."\n";
 
-			$ret .= '<form method="post" name="disco_form">'."\n";
+			$ret .= '<form method="get" name="disco_form">'."\n";
 			$ret .= '<div id="discoLinear">'."\n";
 			
 			$ret .= '<span id="category_label">Category: </span>'."\n";
@@ -189,7 +189,8 @@
 			$es->add_type(id_of('category_type'));
 			$es->add_right_relationship($timeline_item->_id, relationship_id_of('timeline_item_to_category'));
 			$categories = $es->run_one();
-				
+
+			// if category is not yet in the category list then add it
 			foreach ($categories as $category)
 			{
 				if (!array_key_exists($category->get_value('id'), $this->category_id_list))
@@ -199,6 +200,7 @@
 			if ($this->category_id != 0 && (empty($categories) || !array_key_exists($this->category_id, $categories)))
 				$add_timeline_event = false;
 
+			// Remove any keys with null values from the timeline item json
 			foreach ($timeline_item_json as $key => $value)
 			{
 				if ($value === null)
